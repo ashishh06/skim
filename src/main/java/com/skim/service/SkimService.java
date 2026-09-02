@@ -17,18 +17,36 @@ public class SkimService {
         return aiCall;
     }
 
-    private String buildPrompt(SkimRequest request){
-        StringBuilder prompt = new StringBuilder();
-        switch (request.getOperation()) {
-            case "summarize":
-                prompt.append("Provide a clear and concise summary of the following text in a few sentences:\\n\\n");
-            case "suggest":
-                prompt.append("Based on the following content: suggest related topics and further reading. Format the response with clear headings and bullet points:\n\n");
-                break;
-            default:
-                throw new IllegalArgumentException("Unknown Operation: " + request.getOperation());
+    private String buildPrompt(SkimRequest request) {
+        if (request == null || request.getContent() == null || request.getContent().isBlank()) {
+            throw new IllegalArgumentException("Content must not be empty");
         }
-        prompt.append(request.getContent());
-        return prompt.toString();
+
+        String operation = request.getOperation();
+        if (operation == null || operation.isBlank()) {
+            throw new IllegalArgumentException("Operation must not be empty");
+        }
+
+        StringBuilder prompt = new StringBuilder();
+
+        switch (operation.toLowerCase()) {
+            case "summarize":
+                prompt.append(
+                        "Provide a clear and concise summary of the following text in a few sentences:\n\n"
+                );
+                break;
+
+            case "suggest":
+                prompt.append(
+                        "Based on the following content, suggest related topics and further reading. "
+                                + "Format the response with clear headings and bullet points:\n\n"
+                );
+                break;
+
+            default:
+                throw new IllegalArgumentException("Unknown operation: " + operation);
+        }
+
+        return prompt.append(request.getContent()).toString();
     }
 }
