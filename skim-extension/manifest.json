@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "Skim - AI Text Summarizer",
+  "version": "1.0.0",
+  "description": "Select text on any page and summarize or get related suggestions using AI.",
+  "permissions": ["contextMenus", "activeTab", "storage", "scripting"],
+  "host_permissions": ["http://localhost:8080/*"],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Skim"
+  }
+}

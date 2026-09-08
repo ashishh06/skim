@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>Skim</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="app">
+    <header>
+      <h1>Skim</h1>
+      <p class="subtitle">Select text on a page, then use these buttons or right-click.</p>
+    </header>
+
+    <div class="actions">
+      <button id="btn-summarize" class="btn primary">Summarize selection</button>
+      <button id="btn-suggest" class="btn secondary">Suggest related topics</button>
+    </div>
+
+    <div id="status" class="status hidden"></div>
+
+    <div id="result-container" class="result-container hidden">
+      <div class="result-header">
+        <span id="result-label"></span>
+        <button id="btn-copy" class="btn-copy">Copy</button>
+      </div>
+      <div id="result-text" class="result-text"></div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
