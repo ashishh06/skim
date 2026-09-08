@@ -14,6 +14,8 @@ public class SkimService {
     public String processContent(SkimRequest request) {
         String prompt = buildPrompt(request);
         String aiCall = aiService.callAi(prompt);
+        System.out.println("yooo");
+        System.out.println(aiCall);
         return aiCall;
     }
 
