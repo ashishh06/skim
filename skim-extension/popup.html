@@ -6,28 +6,40 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <div class="app">
-    <header>
-      <h1>Skim</h1>
-      <p class="subtitle">Select text on a page, then use these buttons or right-click.</p>
-    </header>
+<div class="app">
+  <header>
+    <h1>Skim</h1>
+    <p class="subtitle">Select text on a page, then use these buttons or right-click.</p>
+  </header>
 
-    <div class="actions">
-      <button id="btn-summarize" class="btn primary">Summarize selection</button>
-      <button id="btn-suggest" class="btn secondary">Suggest related topics</button>
-    </div>
+  <div class="actions">
+    <button id="btn-summarize" class="btn primary">Summarize selection</button>
+    <button id="btn-suggest" class="btn secondary">Suggest related topics</button>
+    <button id="btn-explain" class="btn secondary">Explain simply</button>
 
-    <div id="status" class="status hidden"></div>
-
-    <div id="result-container" class="result-container hidden">
-      <div class="result-header">
-        <span id="result-label"></span>
-        <button id="btn-copy" class="btn-copy">Copy</button>
-      </div>
-      <div id="result-text" class="result-text"></div>
+    <div class="rewrite-row">
+      <select id="tone-select" class="tone-select">
+        <option value="formal">Formal</option>
+        <option value="casual">Casual</option>
+        <option value="fix-grammar">Fix grammar</option>
+        <option value="shorten">Shorten</option>
+        <option value="expand">Expand</option>
+      </select>
+      <button id="btn-rewrite" class="btn secondary">Rewrite</button>
     </div>
   </div>
 
-  <script src="popup.js"></script>
+  <div id="status" class="status hidden"></div>
+
+  <div id="result-container" class="result-container hidden">
+    <div class="result-header">
+      <span id="result-label"></span>
+      <button id="btn-copy" class="btn-copy">Copy</button>
+    </div>
+    <div id="result-text" class="result-text"></div>
+  </div>
+</div>
+
+<script src="popup.js"></script>
 </body>
 </html>

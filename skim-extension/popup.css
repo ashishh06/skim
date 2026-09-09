@@ -60,6 +60,21 @@ header h1 {
   background: #e0e3ff;
 }
 
+.rewrite-row {
+  display: flex;
+  gap: 6px;
+}
+
+.tone-select {
+  flex: 1;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 12px;
+  background: white;
+  color: #333;
+}
+
 .status {
   font-size: 13px;
   color: #555;

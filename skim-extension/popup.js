@@ -6,11 +6,16 @@ const resultLabel = document.getElementById("result-label");
 const resultText = document.getElementById("result-text");
 const btnSummarize = document.getElementById("btn-summarize");
 const btnSuggest = document.getElementById("btn-suggest");
+const btnExplain = document.getElementById("btn-explain");
+const btnRewrite = document.getElementById("btn-rewrite");
+const toneSelect = document.getElementById("tone-select");
 const btnCopy = document.getElementById("btn-copy");
 
 const OPERATION_LABELS = {
   summarize: "Summary",
-  suggest: "Related topics"
+  suggest: "Related topics",
+  explain: "Simple explanation",
+  rewrite: "Rewrite"
 };
 
 // Clear any badge notification once the popup is opened
@@ -18,6 +23,8 @@ chrome.action.setBadgeText({ text: "" });
 
 btnSummarize.addEventListener("click", () => runOperation("summarize"));
 btnSuggest.addEventListener("click", () => runOperation("suggest"));
+btnExplain.addEventListener("click", () => runOperation("explain"));
+btnRewrite.addEventListener("click", () => runOperation("rewrite", toneSelect.value));
 
 btnCopy.addEventListener("click", () => {
   navigator.clipboard.writeText(resultText.textContent).then(() => {
@@ -28,11 +35,11 @@ btnCopy.addEventListener("click", () => {
 
 // On popup open, show whatever the last stored result was (e.g. from a context-menu action)
 chrome.storage.local.get(
-  ["skimStatus", "skimOperation", "skimResult", "skimError"],
-  (data) => render(data)
+    ["skimStatus", "skimOperation", "skimResult", "skimError"],
+    (data) => render(data)
 );
 
-async function runOperation(operation) {
+async function runOperation(operation, tone) {
   showLoading(operation);
 
   let selectedText;
@@ -52,7 +59,7 @@ async function runOperation(operation) {
     const response = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: selectedText, operation })
+      body: JSON.stringify({ content: selectedText, operation, tone })
     });
 
     if (!response.ok) {
@@ -82,17 +89,17 @@ function getSelectedTextFromActiveTab() {
         return;
       }
       chrome.scripting.executeScript(
-        {
-          target: { tabId: tab.id },
-          func: () => window.getSelection().toString()
-        },
-        (results) => {
-          if (chrome.runtime.lastError || !results || !results[0]) {
-            reject(new Error(chrome.runtime.lastError?.message || "No result"));
-            return;
+          {
+            target: { tabId: tab.id },
+            func: () => window.getSelection().toString()
+          },
+          (results) => {
+            if (chrome.runtime.lastError || !results || !results[0]) {
+              reject(new Error(chrome.runtime.lastError?.message || "No result"));
+              return;
+            }
+            resolve(results[0].result);
           }
-          resolve(results[0].result);
-        }
       );
     });
   });

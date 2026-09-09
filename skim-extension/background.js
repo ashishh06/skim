@@ -1,7 +1,13 @@
-// ---- Config ----
 const BACKEND_URL = "http://localhost:8080/api/skim/process";
 
-// ---- Context menu setup ----
+const REWRITE_TONES = [
+  { id: "formal", title: "Formal" },
+  { id: "casual", title: "Casual" },
+  { id: "fix-grammar", title: "Fix grammar" },
+  { id: "shorten", title: "Shorten" },
+  { id: "expand", title: "Expand" }
+];
+
 chrome.runtime.onInstalled.addListener(() => {
   chrome.contextMenus.create({
     id: "skim-summarize",
@@ -13,13 +19,47 @@ chrome.runtime.onInstalled.addListener(() => {
     title: "Skim: Suggest related topics",
     contexts: ["selection"]
   });
+  chrome.contextMenus.create({
+    id: "skim-explain",
+    title: "Skim: Explain simply",
+    contexts: ["selection"]
+  });
+
+  chrome.contextMenus.create({
+    id: "skim-rewrite",
+    title: "Skim: Rewrite as...",
+    contexts: ["selection"]
+  });
+  REWRITE_TONES.forEach((tone) => {
+    chrome.contextMenus.create({
+      id: `skim-rewrite-${tone.id}`,
+      parentId: "skim-rewrite",
+      title: tone.title,
+      contexts: ["selection"]
+    });
+  });
 });
 
-// ---- Handle context menu clicks ----
+// Maps a clicked context menu id to { operation, tone? }
+function resolveOperationFromMenuId(menuItemId) {
+  if (menuItemId === "skim-summarize") return { operation: "summarize" };
+  if (menuItemId === "skim-suggest") return { operation: "suggest" };
+  if (menuItemId === "skim-explain") return { operation: "explain" };
+  if (menuItemId.startsWith("skim-rewrite-")) {
+    const tone = menuItemId.replace("skim-rewrite-", "");
+    return { operation: "rewrite", tone };
+  }
+  return null;
+}
+
 chrome.contextMenus.onClicked.addListener(async (info) => {
-  const operation = info.menuItemId === "skim-summarize" ? "summarize" : "suggest";
+  const resolved = resolveOperationFromMenuId(info.menuItemId);
+  if (!resolved) return;
+
   const content = info.selectionText;
   if (!content) return;
+
+  const { operation, tone } = resolved;
 
   await chrome.storage.local.set({
     skimStatus: "loading",
@@ -35,7 +75,7 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
     const response = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content, operation })
+      body: JSON.stringify({ content, operation, tone })
     });
 
     if (!response.ok) {
@@ -53,8 +93,6 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
 
     chrome.action.setBadgeText({ text: "" });
 
-    // Try to auto-open the popup (works in newer Chrome versions from a user gesture context).
-    // If it's not supported, fall back to a badge so the user knows to click the icon.
     try {
       await chrome.action.openPopup();
     } catch (e) {
