@@ -1,5 +1,8 @@
 const BACKEND_URL = "http://localhost:8080/api/skim/process";
 
+const MAX_CONTENT_LENGTH = 8000;
+const MIN_CONTENT_LENGTH = 10;
+
 const REWRITE_TONES = [
   { id: "formal", title: "Formal" },
   { id: "casual", title: "Casual" },
@@ -60,6 +63,31 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
   if (!content) return;
 
   const { operation, tone } = resolved;
+  const trimmedLength = content.trim().length;
+
+  if (trimmedLength < MIN_CONTENT_LENGTH) {
+    await chrome.storage.local.set({
+      skimStatus: "error",
+      skimOperation: operation,
+      skimResult: null,
+      skimError: `Select a bit more text (at least ${MIN_CONTENT_LENGTH} characters).`
+    });
+    chrome.action.setBadgeText({ text: "!" });
+    chrome.action.setBadgeBackgroundColor({ color: "#DC2626" });
+    return;
+  }
+
+  if (trimmedLength > MAX_CONTENT_LENGTH) {
+    await chrome.storage.local.set({
+      skimStatus: "error",
+      skimOperation: operation,
+      skimResult: null,
+      skimError: `Selection too long (${trimmedLength.toLocaleString()} / ${MAX_CONTENT_LENGTH.toLocaleString()} characters). Please select a shorter passage.`
+    });
+    chrome.action.setBadgeText({ text: "!" });
+    chrome.action.setBadgeBackgroundColor({ color: "#DC2626" });
+    return;
+  }
 
   await chrome.storage.local.set({
     skimStatus: "loading",
@@ -79,7 +107,8 @@ chrome.contextMenus.onClicked.addListener(async (info) => {
     });
 
     if (!response.ok) {
-      throw new Error(`Server responded with status ${response.status}`);
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || `Server responded with status ${response.status}`);
     }
 
     const result = await response.text();

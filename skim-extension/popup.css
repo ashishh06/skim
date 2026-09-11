@@ -60,6 +60,22 @@ header h1 {
   background: #e0e3ff;
 }
 
+.selection-info {
+  font-size: 11px;
+  color: #777;
+  margin-bottom: 10px;
+  min-height: 14px;
+}
+
+.selection-info.warn {
+  color: #b91c1c;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .rewrite-row {
   display: flex;
   gap: 6px;

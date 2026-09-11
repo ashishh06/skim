@@ -1,6 +1,10 @@
 const BACKEND_URL = "http://localhost:8080/api/skim/process";
 
+const MAX_CONTENT_LENGTH = 8000;
+const MIN_CONTENT_LENGTH = 10;
+
 const statusEl = document.getElementById("status");
+const selectionInfoEl = document.getElementById("selection-info");
 const resultContainer = document.getElementById("result-container");
 const resultLabel = document.getElementById("result-label");
 const resultText = document.getElementById("result-text");
@@ -10,6 +14,8 @@ const btnExplain = document.getElementById("btn-explain");
 const btnRewrite = document.getElementById("btn-rewrite");
 const toneSelect = document.getElementById("tone-select");
 const btnCopy = document.getElementById("btn-copy");
+
+const ACTION_BUTTONS = [btnSummarize, btnSuggest, btnExplain, btnRewrite];
 
 const OPERATION_LABELS = {
   summarize: "Summary",
@@ -33,15 +39,59 @@ btnCopy.addEventListener("click", () => {
   });
 });
 
-// On popup open, show whatever the last stored result was (e.g. from a context-menu action)
+// On popup open: restore last result AND check the current selection up front,
+// so the user sees whether their selection is usable before clicking anything.
 chrome.storage.local.get(
     ["skimStatus", "skimOperation", "skimResult", "skimError"],
     (data) => render(data)
 );
+refreshSelectionInfo();
+
+async function refreshSelectionInfo() {
+  let text = "";
+  try {
+    text = (await getSelectedTextFromActiveTab()) || "";
+  } catch (e) {
+    // ignore — treated the same as "no selection" below
+  }
+
+  const validity = checkSelectionValidity(text);
+  setButtonsEnabled(validity.valid);
+
+  if (!text.trim()) {
+    selectionInfoEl.textContent = "Select some text on the page, then come back here.";
+    selectionInfoEl.classList.remove("warn");
+  } else if (!validity.valid) {
+    selectionInfoEl.textContent = validity.message;
+    selectionInfoEl.classList.add("warn");
+  } else {
+    selectionInfoEl.textContent = `${text.trim().length} characters selected`;
+    selectionInfoEl.classList.remove("warn");
+  }
+}
+
+function checkSelectionValidity(text) {
+  const length = text.trim().length;
+  if (length === 0) {
+    return { valid: false, message: "No text is selected on the page." };
+  }
+  if (length < MIN_CONTENT_LENGTH) {
+    return { valid: false, message: `Select a bit more text (at least ${MIN_CONTENT_LENGTH} characters).` };
+  }
+  if (length > MAX_CONTENT_LENGTH) {
+    return {
+      valid: false,
+      message: `Selection too long (${length.toLocaleString()} / ${MAX_CONTENT_LENGTH.toLocaleString()} characters). Please select a shorter passage.`
+    };
+  }
+  return { valid: true, message: "" };
+}
+
+function setButtonsEnabled(enabled) {
+  ACTION_BUTTONS.forEach((btn) => (btn.disabled = !enabled));
+}
 
 async function runOperation(operation, tone) {
-  showLoading(operation);
-
   let selectedText;
   try {
     selectedText = await getSelectedTextFromActiveTab();
@@ -50,20 +100,24 @@ async function runOperation(operation, tone) {
     return;
   }
 
-  if (!selectedText || !selectedText.trim()) {
-    showError("No text is selected on the page.");
+  const validity = checkSelectionValidity(selectedText || "");
+  if (!validity.valid) {
+    showError(validity.message);
     return;
   }
+
+  showLoading(operation);
 
   try {
     const response = await fetch(BACKEND_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: selectedText, operation, tone })
+      body: JSON.stringify({ content: selectedText.trim(), operation, tone })
     });
 
     if (!response.ok) {
-      throw new Error(`Server responded with status ${response.status}`);
+      const errorBody = await response.json().catch(() => null);
+      throw new Error(errorBody?.error || `Server responded with status ${response.status}`);
     }
 
     const result = await response.text();
