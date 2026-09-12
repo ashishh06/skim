@@ -1,6 +1,6 @@
 # Skim — AI-Powered Text Summarizer (Chrome Extension)
 
-Skim lets you select any text on a webpage and run it through an AI model to summarize it, get related topic suggestions, get a simplified explanation, or rewrite it in a different tone — all without leaving the page.
+Skim lets you select any text on a webpage and run it through an AI model to summarize it, get related topic suggestions, get a simplified explanation, or rewrite it in a different tone — all without leaving the page. The backend is hardened with input validation, prompt-injection resistance, rate limiting, caching, and concurrency control so it can be safely shared for demos.
 
 ## Tech Stack
 
@@ -12,69 +12,101 @@ Skim lets you select any text on a webpage and run it through an AI model to sum
 
 ```
 skim-extension/
-├── manifest.json        # Extension config, permissions, context menu capability
-├── background.js         # Service worker: context menu setup + click handling
-├── popup.html             # Popup UI markup
-├── popup.js               # Popup logic: manual triggers, selection reading, rendering
-├── popup.css              # Popup styling
+├── manifest.json          # Extension config, permissions, context menu capability
+├── background.js           # Service worker: context menu setup + click handling
+├── popup.html               # Popup UI markup
+├── popup.js                 # Popup logic: manual triggers, selection reading, validation, rendering
+├── popup.css                # Popup styling
 └── backend/
-    ├── SkimRequest.java   # Request DTO (content, operation, tone)
-    └── SkimService.java   # Builds AI prompts based on operation/tone
-
-(backend also includes SkimController and AiService, built earlier)
+    ├── SkimRequest.java              # Request DTO with validation annotations
+    ├── SkimController.java           # REST endpoint
+    ├── SkimService.java              # Prompt building, caching, quota, concurrency orchestration
+    ├── AiService.java                # Wraps the Gemini call via Spring AI ChatClient
+    ├── GlobalExceptionHandler.java   # Centralized error responses
+    ├── config/
+    │   ├── RateLimitProperties.java  # Configurable thresholds
+    │   └── WebConfig.java            # Registers the rate limit interceptor
+    ├── ratelimit/
+    │   ├── RateLimiterService.java   # Per-IP burst + daily limiting
+    │   ├── RateLimitInterceptor.java # Rejects over-limit requests before the controller
+    │   └── RateLimitResult.java
+    ├── service/
+    │   ├── GlobalUsageService.java        # Global daily AI-call cap
+    │   ├── ConcurrencyLimiterService.java # Caps simultaneous in-flight AI calls
+    │   └── ResponseCacheService.java      # Caches identical requests
+    └── util/
+        ├── AiServiceException.java
+        ├── DailyLimitReachedException.java
+        └── ServerBusyException.java
 ```
 
-## Features (current)
+## Features
 
-| Operation  | Description                                      | Trigger                          |
-|------------|---------------------------------------------------|-----------------------------------|
-| Summarize  | Concise summary of selected text                 | Right-click menu / popup button   |
-| Suggest    | Related topics & further reading                 | Right-click menu / popup button   |
-| Explain    | Simplified, jargon-free explanation               | Right-click menu / popup button   |
-| Rewrite    | Rewrite selection in a chosen tone (formal, casual, fix-grammar, shorten, expand) | Right-click submenu / popup dropdown |
+**Core operations**
+- Summarize — concise summary of selected text
+- Suggest — related topics and further reading
+- Explain — simplified, jargon-free explanation
+- Rewrite — formal, casual, fix-grammar, shorten, or expand, via a tone parameter
+
+**Frontend**
+- Right-click context menu for every operation (with a Rewrite submenu for tones)
+- Popup UI with manual trigger buttons and a tone dropdown
+- Live selection validation — shows character count, warns and disables buttons if the selection is too short/long, before any request is sent
+- Copy-to-clipboard for results
+- Last result persists across popup reopens
+
+**Backend robustness**
+- Input validation (10–8000 character range, required fields) via Bean Validation
+- Content sanitization (strips control characters, normalizes whitespace)
+- Prompt-injection resistance — selected text is wrapped in explicit delimiters with an instruction to treat it as data, not commands
+- Centralized exception handling — consistent JSON error responses, no leaked stack traces
+- Per-IP rate limiting — burst (per minute) and daily caps per client
+- Global daily usage cap — protects the shared Gemini free-tier quota regardless of per-IP limits
+- Response caching — identical `(content, operation, tone)` requests are served instantly without calling Gemini again
+- Concurrency limiting — caps simultaneous in-flight Gemini calls, queuing brief bursts
 
 ## How It Works
 
 1. User selects text on any webpage.
 2. Trigger via **right-click → Skim menu** or the **extension popup**.
-3. The extension sends `{ content, operation, tone? }` to the backend (`POST /api/skim/process`).
-4. `SkimService` builds an operation-specific prompt and calls `AiService`, which forwards it to Gemini via Spring AI's `ChatClient`.
-5. The AI response is returned and displayed in the popup (with loading and error states handled on the frontend).
+3. Extension validates selection length client-side, then sends `{ content, operation, tone? }` to `POST /api/skim/process`.
+4. Request passes through the rate limit interceptor (per-IP check), then bean validation on the DTO.
+5. `SkimService` builds an operation-specific, injection-resistant prompt, checks the response cache, then (on a cache miss) checks the global daily quota and acquires a concurrency slot before calling `AiService` → Gemini via Spring AI.
+6. Result is cached and returned; the extension displays it with loading/error states handled throughout.
 
 ## Backend Setup
 
-1. Clone the backend repo and add your Gemini API key to `application.properties` / environment variables (as required by your Spring AI config).
-2. Run the Spring Boot app — it should start on `http://localhost:8080`.
-3. Confirm the endpoint is live: `POST http://localhost:8080/api/skim/process` with a JSON body like:
+1. Add dependencies: `spring-boot-starter-web`, `spring-boot-starter-validation`, Spring AI's Gemini starter.
+2. Add your Gemini API key to `application.properties` / environment variables as required by your Spring AI config.
+3. Add the rate-limit thresholds from `application-ratelimit.properties.snippet` into your `application.properties` (tune as needed).
+4. Run the app — it starts on `http://localhost:8080`.
+5. Test the endpoint:
    ```json
-   { "content": "some text", "operation": "summarize" }
+   POST http://localhost:8080/api/skim/process
+   { "content": "some text longer than ten characters", "operation": "summarize" }
    ```
 
 ## Extension Setup (local, unpacked)
 
 1. Download/clone the `skim-extension` folder (keep all files at the top level).
-2. Open `chrome://extensions` in Chrome.
-3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select the `skim-extension` folder.
-5. Pin the Skim icon to your toolbar for easy access.
-6. Make sure the backend is running locally on port 8080 before testing.
+2. Open `chrome://extensions`, enable **Developer mode**.
+3. Click **Load unpacked**, select the `skim-extension` folder.
+4. Pin the Skim icon to your toolbar.
+5. Make sure the backend is running locally on port 8080.
 
 ### Reloading after changes
-Chrome doesn't hot-reload extensions. After editing any file, go to `chrome://extensions` and click the reload icon on the Skim card.
+Reload the extension from `chrome://extensions` after editing any file — nothing hot-reloads.
 
 ### Debugging
-- **Background script:** on `chrome://extensions`, click "service worker" under the Skim card to open its console.
+- **Background script:** click "service worker" under the Skim card on `chrome://extensions`.
 - **Popup:** right-click inside the open popup → "Inspect."
 
 ## Roadmap
 
-**Done:** context menu integration, popup UI, summarize/suggest/explain/rewrite operations, basic error handling.
+**Done:** context menu, popup UI, 4 operations with tone support, input validation, prompt-injection resistance, per-IP + global rate limiting, response caching, concurrency limiting, centralized error handling.
 
 **Next up:**
 - Keyboard shortcut trigger (`chrome.commands`)
-- Rate limiting on the backend (per-IP or per-install)
-- Response DTO instead of raw string
-- Caching identical requests
 - Deployment (hosted backend instead of localhost)
 - History/persistence of past results
 - Streaming responses
