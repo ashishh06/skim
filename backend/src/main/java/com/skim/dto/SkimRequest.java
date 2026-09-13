@@ -10,7 +10,7 @@ public class SkimRequest {
     @NotBlank(message = "Content must not be empty")
     @Size(
             min = 10,
-            max = 1000,
+            max = 5000,
             message = "Content must be between 10 and 1000 characters"
     )
     private String content;

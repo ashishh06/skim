@@ -1,6 +1,8 @@
 package com.skim.controller;
 
 import com.skim.util.AiServiceException;
+import com.skim.util.DailyLimitReachedException;
+import com.skim.util.ServerBusyException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -36,6 +38,18 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorBody(ex.getMessage()));
+    }
+
+    // Triggered when the global daily quota (protects the shared Gemini free-tier limit) is hit
+    @ExceptionHandler(DailyLimitReachedException.class)
+    public ResponseEntity<Map<String, String>> handleDailyLimitReached(DailyLimitReachedException ex) {
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(errorBody(ex.getMessage()));
+    }
+
+    // Triggered when too many requests are in-flight to Gemini at once
+    @ExceptionHandler(ServerBusyException.class)
+    public ResponseEntity<Map<String, String>> handleServerBusy(ServerBusyException ex) {
+        return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(errorBody(ex.getMessage()));
     }
 
     // Triggered when the AI call itself fails
