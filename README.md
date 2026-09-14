@@ -11,35 +11,46 @@ Skim lets you select any text on a webpage and run it through an AI model to sum
 ## Project Structure
 
 ```
-skim-extension/
-├── manifest.json          # Extension config, permissions, context menu capability
-├── background.js           # Service worker: context menu setup + click handling
-├── popup.html               # Popup UI markup
-├── popup.js                 # Popup logic: manual triggers, selection reading, validation, rendering
-├── popup.css                # Popup styling
-└── backend/
-    ├── SkimRequest.java              # Request DTO with validation annotations
-    ├── SkimController.java           # REST endpoint
-    ├── SkimService.java              # Prompt building, caching, quota, concurrency orchestration
-    ├── AiService.java                # Wraps the Gemini call via Spring AI ChatClient
-    ├── GlobalExceptionHandler.java   # Centralized error responses
-    ├── config/
-    │   ├── RateLimitProperties.java  # Configurable thresholds
-    │   └── WebConfig.java            # Registers the rate limit interceptor
-    ├── ratelimit/
-    │   ├── RateLimiterService.java   # Per-IP burst + daily limiting
-    │   ├── RateLimitInterceptor.java # Rejects over-limit requests before the controller
-    │   └── RateLimitResult.java
-    ├── service/
-    │   ├── GlobalUsageService.java        # Global daily AI-call cap
-    │   ├── ConcurrencyLimiterService.java # Caps simultaneous in-flight AI calls
-    │   └── ResponseCacheService.java      # Caches identical requests
-    └── util/
-        ├── AiServiceException.java
-        ├── DailyLimitReachedException.java
-        └── ServerBusyException.java
+├── backend
+│   ├── src
+│   │   ├── main
+│   │   │   ├── java
+│   │   │   │   └── com
+│   │   │   │       └── skim
+│   │   │   │           ├── config
+│   │   │   │           │   ├── RateLimitProperties.java
+│   │   │   │           │   └── WebConfig.java
+│   │   │   │           ├── controller
+│   │   │   │           │   ├── GlobalExceptionHandler.java
+│   │   │   │           │   └── SkimController.java           
+│   │   │   │           ├── dto
+│   │   │   │           │   └── SkimRequest.java             
+│   │   │   │           ├── rateLimit
+│   │   │   │           │   ├── RateLimiterService.java
+│   │   │   │           │   ├── RateLimitInterceptor.java
+│   │   │   │           │   └── RateLimitResult.java
+│   │   │   │           ├── service
+│   │   │   │           │   ├── AiService.java                
+│   │   │   │           │   ├── ConcurrencyLimiterService.java
+│   │   │   │           │   ├── GlobalUsageService.java
+│   │   │   │           │   ├── ResponseCacheService.java
+│   │   │   │           │   └── SkimService.java           
+│   │   │   │           ├── util
+│   │   │   │           │   ├── AiServiceException.java
+│   │   │   │           │   ├── DailyLimitReachedException.java
+│   │   │   │           │   └── ServerBusyException.java
+│   │   │   │           └── SkimApplication.java
+│   │   │   └── resources
+│   │   │       ├── static
+│   │   │       ├── templates
+│   │   │       └── application.properties
+├── skim-extension
+│   ├── background.js
+│   ├── manifest.json
+│   ├── popup.css
+│   ├── popup.html
+│   └── popup.js
 ```
-
 ## Features
 
 **Core operations**
